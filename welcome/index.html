@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="接機燈牌">
+<title>接機跑馬燈</title>
+<style>[hidden]{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@900&family=Noto+Sans+JP:wght@900&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
+<style>
+/* Layout: one full-screen dot-matrix LED panel, the kind held up at an arrivals gate; tap it and a control tray slides up from the bottom. Single dark look on purpose (an unlit LED board). */
+:root{
+  --board:#050506; --dot-off:#1A1416; --tray:#141216; --tray-2:#211E23; --line:rgba(255,255,255,.12);
+  --ink:#F4F1F3; --ink-2:#ABA4AA; --amber:#FFB21A; --red:#FF2D3A;
+  --led:"Noto Sans TC","Noto Sans JP","PingFang TC","Microsoft JhengHei",sans-serif;
+  --ui:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --num:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{margin:0;background:var(--board);color:var(--ink);font:400 15px/1.5 var(--ui);overflow:hidden;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+#sign{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:manipulation;cursor:pointer}
+.hint{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:13px;color:var(--ink-2);background:rgba(20,18,22,.8);padding:6px 14px;border-radius:999px;pointer-events:none;transition:opacity .4s;white-space:nowrap}
+.hint.gone{opacity:0}
+.tray{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--tray);border-top:1px solid var(--line);border-radius:18px 18px 0 0;box-shadow:0 -14px 40px rgba(0,0,0,.6);
+  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  max-height:min(78vh,560px);overflow-y:auto;transform:translateY(105%);transition:transform .3s cubic-bezier(.22,1,.36,1)}
+.tray.open{transform:none}
+@media (prefers-reduced-motion: reduce){.tray{transition:none}}
+.tray-in{max-width:720px;margin:0 auto;display:grid;gap:14px}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--tray-2);margin:0 auto 2px}
+.row{display:grid;gap:8px}
+.lab{font-size:12.5px;font-weight:700;color:var(--ink-2);letter-spacing:.06em}
+textarea{width:100%;box-sizing:border-box;min-height:58px;resize:vertical;border:1px solid var(--line);border-radius:12px;background:var(--board);color:var(--ink);font:900 20px/1.4 var(--led);padding:10px 12px;outline:none}
+textarea:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(255,178,26,.25)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--tray-2);color:var(--ink);border-radius:999px;padding:7px 12px;font:600 14px/1.2 var(--ui);cursor:pointer;min-height:36px}
+.chip:active{transform:scale(.97)}
+.chip[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+.sw{display:flex;gap:10px;flex-wrap:wrap}
+.sw button{width:40px;height:40px;border-radius:50%;border:2px solid transparent;cursor:pointer;box-shadow:inset 0 0 0 3px var(--tray)}
+.sw button[aria-pressed="true"]{border-color:var(--ink)}
+.sw .rb{background:conic-gradient(#ff2d3a,#ffb21a,#ffe600,#2dff6a,#2dc8ff,#7a5cff,#ff2dd2,#ff2d3a)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:14px}
+input[type=range]{width:100%;accent-color:var(--amber);height:28px}
+.seg{display:flex;background:var(--board);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:transparent;color:var(--ink-2);border-radius:9px;min-height:36px;font:700 14px/1 var(--ui);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--tray-2);color:var(--ink)}
+.acts{display:flex;flex-wrap:wrap;gap:8px}
+.btn{flex:1 1 140px;min-height:46px;border:0;border-radius:12px;font:700 15.5px/1 var(--ui);cursor:pointer;background:var(--tray-2);color:var(--ink)}
+.btn.go{background:var(--amber);color:#1A1200}
+.note{font-size:12.5px;color:var(--ink-2);margin:0}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+</style>
+</head>
+<body>
+
+
+<canvas id="sign" aria-label="LED 跑馬燈" role="img"></canvas>
+<p class="hint" id="hint">手機轉橫拿 · 點一下螢幕可以改字</p>
+
+<section class="tray" id="tray" aria-label="跑馬燈設定">
+  <div class="tray-in">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="row">
+      <label class="lab" for="txt">顯示的字</label>
+      <textarea id="txt" maxlength="80" spellcheck="false"></textarea>
+      <div class="chips" id="presets"></div>
+    </div>
+    <div class="row">
+      <span class="lab">燈的顏色</span>
+      <div class="sw" id="colors"></div>
+    </div>
+    <div class="two">
+      <div class="row">
+        <label class="lab" for="spd">跑的速度</label>
+        <input type="range" id="spd" min="6" max="60" step="1">
+      </div>
+      <div class="row">
+        <span class="lab">字的大小（燈的行數）</span>
+        <div class="seg" id="rows">
+          <button type="button" data-r="20">大字</button><button type="button" data-r="26">標準</button><button type="button" data-r="34">細緻</button>
+        </div>
+      </div>
+    </div>
+    <div class="two">
+      <div class="row">
+        <span class="lab">效果</span>
+        <div class="seg" id="fx">
+          <button type="button" data-fx="scroll">跑馬燈</button><button type="button" data-fx="blink">閃爍</button><button type="button" data-fx="still">靜止</button>
+        </div>
+      </div>
+      <div class="row">
+        <span class="lab">螢幕方向鎖住時</span>
+        <div class="seg" id="rot">
+          <button type="button" data-rot="0">不轉</button><button type="button" data-rot="1">轉 90°</button>
+        </div>
+      </div>
+    </div>
+    <div class="acts">
+      <button type="button" class="btn go" id="show">開始顯示</button>
+      <button type="button" class="btn" id="full">全螢幕</button>
+    </div>
+    <p class="note" id="note">手機轉橫、亮度調到最高效果最好。開著時會盡量讓螢幕不自動變暗。</p>
+  </div>
+</section>
+
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const PRESETS=['爸爸 媽媽 歡迎來到日本！','歡迎來到東京 ♥ 爸 媽','ようこそ日本へ！','WELCOME TO JAPAN, MOM & DAD!','爸 媽 我在這裡 ↑','一路辛苦了！'];
+const COLORS=[['#FF2D3A','紅'],['#FFB21A','琥珀'],['#2DFF6A','綠'],['#2DC8FF','藍'],['#FFFFFF','白'],['rainbow','彩虹']];
+const KEY='tkh-led:v1';
+let st={text:PRESETS[0],color:'#FF2D3A',speed:24,rows:26,fx:'scroll',rot:0};
+try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&typeof s==='object')st=Object.assign(st,s)}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}};
+
+/* ---------- raster the message into an on/off grid ---------- */
+let grid=null, gw=0;
+const src=document.createElement('canvas'), sx=src.getContext('2d',{willReadFrequently:true});
+function raster(){
+  const R=st.rows, text=(st.text||' ').replace(/\s+/g,' ').trim()||' ';
+  const fs=Math.round(R*0.92);
+  const font=`900 ${fs}px "Noto Sans TC","Noto Sans JP","PingFang TC","Microsoft JhengHei",sans-serif`;
+  sx.font=font; const w=Math.ceil(sx.measureText(text).width)+2;
+  src.width=Math.max(1,w); src.height=R;
+  sx.font=font; sx.fillStyle='#000'; sx.fillRect(0,0,w,R); sx.fillStyle='#fff'; sx.textBaseline='middle';
+  sx.fillText(text,1,R/2+R*0.04);
+  const d=sx.getImageData(0,0,w,R).data; grid=new Uint8Array(w*R);
+  for(let y=0;y<R;y++)for(let x=0;x<w;x++)grid[y*w+x]=d[(y*w+x)*4]>118?1:0;
+  gw=w; offset=0;
+}
+
+/* ---------- the panel ---------- */
+const cv=$('#sign'), cx=cv.getContext('2d');
+let W=0,H=0,dpr=1,pitch=8,cols=0,ox=0,oy=0,bg=null,sprites={},offset=0,last=0,running=true;
+function dotSprite(color,on){
+  const s=document.createElement('canvas'), n=Math.ceil(pitch*2); s.width=s.height=n; const g=s.getContext('2d'), c=n/2, r=pitch*0.38;
+  if(on){g.shadowColor=color;g.shadowBlur=pitch*0.7;}
+  g.fillStyle=on?color:getComputedStyle(document.documentElement).getPropertyValue('--dot-off').trim()||'#1A1416';
+  g.beginPath();g.arc(c,c,r,0,Math.PI*2);g.fill();
+  if(on){g.shadowBlur=0;g.fillStyle='rgba(255,255,255,.35)';g.beginPath();g.arc(c-r*.25,c-r*.25,r*.35,0,Math.PI*2);g.fill();}
+  return s;
+}
+const rotated=()=>st.rot===1;
+function layout(){
+  dpr=Math.min(window.devicePixelRatio||1,2);
+  W=innerWidth; H=innerHeight; cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  const L=rotated()?H:W, S=rotated()?W:H;           // long and short edge of the drawing
+  const R=st.rows;
+  pitch=Math.max(3,Math.min(S*0.86/R, L/(R*1.6)))*dpr;
+  cols=Math.floor(L*dpr/pitch);
+  ox=(L*dpr-cols*pitch)/2; oy=(S*dpr-R*pitch)/2;
+  sprites={};
+  const hues=st.color==='rainbow'?Array.from({length:24},(_,i)=>`hsl(${i*15},100%,58%)`):[st.color];
+  sprites.on=hues.map(h=>dotSprite(h,true)); sprites.off=dotSprite('#000',false);
+  bg=document.createElement('canvas'); bg.width=cv.width; bg.height=cv.height; const b=bg.getContext('2d');
+  b.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--board').trim()||'#050506'; b.fillRect(0,0,bg.width,bg.height);
+  if(rotated()){b.translate(bg.width,0);b.rotate(Math.PI/2)}
+  for(let y=0;y<R;y++)for(let x=0;x<cols;x++)b.drawImage(sprites.off,ox+x*pitch-pitch/2,oy+y*pitch-pitch/2);
+}
+function frame(t){
+  const dt=last?Math.min(0.1,(t-last)/1000):0; last=t;
+  const R=st.rows, gap=Math.max(Math.round(cols*0.35),R*2), loop=gw+gap;
+  if(running&&st.fx==='scroll') offset=(offset+st.speed*dt)%loop;
+  cx.setTransform(1,0,0,1,0,0); cx.drawImage(bg,0,0);
+  if(rotated()){cx.translate(cv.width,0);cx.rotate(Math.PI/2)}
+  const blinkOff=st.fx==='blink'&&(Math.floor(t/600)%2===1);
+  if(grid&&!blinkOff){
+    const still=st.fx!=='scroll', start=still?Math.round((gw-cols)/2):Math.floor(offset)-cols, n=sprites.on.length;
+    for(let x=0;x<cols;x++){
+      let gx=start+x; if(!still){gx=((gx%loop)+loop)%loop} if(gx<0||gx>=gw) continue;
+      const sp=sprites.on[n>1?Math.floor((x+t/40)%n):0];
+      for(let y=0;y<R;y++) if(grid[y*gw+gx]) cx.drawImage(sp,ox+x*pitch-pitch/2,oy+y*pitch-pitch/2);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- keep the screen awake while it shows ---------- */
+let lock=null;
+async function wake(){try{if('wakeLock' in navigator&&!lock){lock=await navigator.wakeLock.request('screen');lock.addEventListener('release',()=>{lock=null})}}catch(e){lock=null}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')wake()});
+
+/* ---------- controls ---------- */
+const tray=$('#tray'), txt=$('#txt'), hint=$('#hint');
+function paint(){
+  txt.value=st.text; $('#spd').value=st.speed;
+  $('#presets').innerHTML=PRESETS.map((p,i)=>`<button type="button" class="chip" data-p="${i}" aria-pressed="${p===st.text}">${p}</button>`).join('');
+  $('#colors').innerHTML=COLORS.map(([c,n])=>`<button type="button" ${c==='rainbow'?'class="rb"':`style="background:${c}"`} data-c="${c}" aria-label="${n}" aria-pressed="${c===st.color}"></button>`).join('');
+  document.querySelectorAll('#rows button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.r===st.rows)));
+  document.querySelectorAll('#fx button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.fx===st.fx)));
+  document.querySelectorAll('#rot button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.rot===st.rot)));
+}
+const openTray=o=>{tray.classList.toggle('open',o); if(o){hint.classList.add('gone')}};
+cv.addEventListener('click',()=>{wake();openTray(!tray.classList.contains('open'))});
+let tT=null;
+txt.addEventListener('input',()=>{st.text=txt.value;save();clearTimeout(tT);tT=setTimeout(()=>{raster();paint();txt.focus()},250)});
+tray.addEventListener('click',e=>{
+  const p=e.target.closest('[data-p]'); if(p){st.text=PRESETS[+p.dataset.p];raster();save();paint();return}
+  const c=e.target.closest('[data-c]'); if(c){st.color=c.dataset.c;layout();save();paint();return}
+  const r=e.target.closest('[data-r]'); if(r){st.rows=+r.dataset.r;raster();layout();save();paint();return}
+  const f=e.target.closest('[data-fx]'); if(f){st.fx=f.dataset.fx;save();paint();return}
+  const o=e.target.closest('[data-rot]'); if(o){st.rot=+o.dataset.rot;layout();save();paint();return}
+  if(e.target.closest('#show')){wake();openTray(false);return}
+  if(e.target.closest('#full')){wake();const el=document.documentElement;const fn=el.requestFullscreen||el.webkitRequestFullscreen;
+    if(document.fullscreenElement||document.webkitFullscreenElement){(document.exitFullscreen||document.webkitExitFullscreen).call(document)}
+    else if(fn){Promise.resolve(fn.call(el)).catch(()=>{$('#note').textContent='這支手機不支援全螢幕；iPhone 可以用「分享 → 加入主畫面」再從主畫面打開，就沒有網址列。'})}
+    else{$('#note').textContent='這支手機不支援全螢幕；iPhone 可以用「分享 → 加入主畫面」再從主畫面打開，就沒有網址列。'}
+    openTray(false);return}
+});
+$('#spd').addEventListener('input',e=>{st.speed=+e.target.value;save()});
+addEventListener('resize',()=>{layout()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')openTray(false)});
+setTimeout(()=>hint.classList.add('gone'),5000);
+
+paint();
+const boot=()=>{raster();layout();requestAnimationFrame(frame)};
+const fontsReady=document.fonts&&document.fonts.load?Promise.race([document.fonts.load('900 40px "Noto Sans TC"',st.text),new Promise(r=>setTimeout(r,1800))]):Promise.resolve();
+fontsReady.then(boot,boot);
+document.fonts&&document.fonts.ready&&document.fonts.ready.then(()=>{raster()});
+})();
+</script>
+
+</body>
+</html>
